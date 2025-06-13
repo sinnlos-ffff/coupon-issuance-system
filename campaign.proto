@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package coupon.v1;
+
+service CouponService {
+  rpc CreateCampaign(CreateCampaignRequest) returns (CreateCampaignResponse);
+  rpc GetCampaign(GetCampaignRequest) returns (GetCampaignResponse);
+  rpc IssueCoupon(IssueCouponRequest) returns (IssueCouponResponse);
+}
+
+message CreateCampaignRequest {
+}
+
+message CreateCampaignResponse {
+}
+
+message GetCampaignRequest {
+}
+
+message GetCampaignResponse {
+}
+
+message IssueCouponRequest {
+}
+
+message IssueCouponResponse {
+}
