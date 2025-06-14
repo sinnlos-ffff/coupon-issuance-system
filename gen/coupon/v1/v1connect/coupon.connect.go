@@ -2,12 +2,12 @@
 //
 // Source: coupon/v1/coupon.proto
 
-package couponconnect
+package v1connect
 
 import (
 	connect "connectrpc.com/connect"
 	context "context"
-	coupon "coupon-issuance/coupon"
+	v1 "coupon-issuance/gen/coupon/v1"
 	errors "errors"
 	http "net/http"
 	strings "strings"
@@ -46,9 +46,9 @@ const (
 
 // CouponServiceClient is a client for the coupon.v1.CouponService service.
 type CouponServiceClient interface {
-	CreateCampaign(context.Context, *connect.Request[coupon.CreateCampaignRequest]) (*connect.Response[coupon.CreateCampaignResponse], error)
-	GetCampaign(context.Context, *connect.Request[coupon.GetCampaignRequest]) (*connect.Response[coupon.GetCampaignResponse], error)
-	IssueCoupon(context.Context, *connect.Request[coupon.IssueCouponRequest]) (*connect.Response[coupon.IssueCouponResponse], error)
+	CreateCampaign(context.Context, *connect.Request[v1.CreateCampaignRequest]) (*connect.Response[v1.CreateCampaignResponse], error)
+	GetCampaign(context.Context, *connect.Request[v1.GetCampaignRequest]) (*connect.Response[v1.GetCampaignResponse], error)
+	IssueCoupon(context.Context, *connect.Request[v1.IssueCouponRequest]) (*connect.Response[v1.IssueCouponResponse], error)
 }
 
 // NewCouponServiceClient constructs a client for the coupon.v1.CouponService service. By default,
@@ -60,21 +60,21 @@ type CouponServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewCouponServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) CouponServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	couponServiceMethods := coupon.File_coupon_v1_coupon_proto.Services().ByName("CouponService").Methods()
+	couponServiceMethods := v1.File_coupon_v1_coupon_proto.Services().ByName("CouponService").Methods()
 	return &couponServiceClient{
-		createCampaign: connect.NewClient[coupon.CreateCampaignRequest, coupon.CreateCampaignResponse](
+		createCampaign: connect.NewClient[v1.CreateCampaignRequest, v1.CreateCampaignResponse](
 			httpClient,
 			baseURL+CouponServiceCreateCampaignProcedure,
 			connect.WithSchema(couponServiceMethods.ByName("CreateCampaign")),
 			connect.WithClientOptions(opts...),
 		),
-		getCampaign: connect.NewClient[coupon.GetCampaignRequest, coupon.GetCampaignResponse](
+		getCampaign: connect.NewClient[v1.GetCampaignRequest, v1.GetCampaignResponse](
 			httpClient,
 			baseURL+CouponServiceGetCampaignProcedure,
 			connect.WithSchema(couponServiceMethods.ByName("GetCampaign")),
 			connect.WithClientOptions(opts...),
 		),
-		issueCoupon: connect.NewClient[coupon.IssueCouponRequest, coupon.IssueCouponResponse](
+		issueCoupon: connect.NewClient[v1.IssueCouponRequest, v1.IssueCouponResponse](
 			httpClient,
 			baseURL+CouponServiceIssueCouponProcedure,
 			connect.WithSchema(couponServiceMethods.ByName("IssueCoupon")),
@@ -85,31 +85,31 @@ func NewCouponServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 
 // couponServiceClient implements CouponServiceClient.
 type couponServiceClient struct {
-	createCampaign *connect.Client[coupon.CreateCampaignRequest, coupon.CreateCampaignResponse]
-	getCampaign    *connect.Client[coupon.GetCampaignRequest, coupon.GetCampaignResponse]
-	issueCoupon    *connect.Client[coupon.IssueCouponRequest, coupon.IssueCouponResponse]
+	createCampaign *connect.Client[v1.CreateCampaignRequest, v1.CreateCampaignResponse]
+	getCampaign    *connect.Client[v1.GetCampaignRequest, v1.GetCampaignResponse]
+	issueCoupon    *connect.Client[v1.IssueCouponRequest, v1.IssueCouponResponse]
 }
 
 // CreateCampaign calls coupon.v1.CouponService.CreateCampaign.
-func (c *couponServiceClient) CreateCampaign(ctx context.Context, req *connect.Request[coupon.CreateCampaignRequest]) (*connect.Response[coupon.CreateCampaignResponse], error) {
+func (c *couponServiceClient) CreateCampaign(ctx context.Context, req *connect.Request[v1.CreateCampaignRequest]) (*connect.Response[v1.CreateCampaignResponse], error) {
 	return c.createCampaign.CallUnary(ctx, req)
 }
 
 // GetCampaign calls coupon.v1.CouponService.GetCampaign.
-func (c *couponServiceClient) GetCampaign(ctx context.Context, req *connect.Request[coupon.GetCampaignRequest]) (*connect.Response[coupon.GetCampaignResponse], error) {
+func (c *couponServiceClient) GetCampaign(ctx context.Context, req *connect.Request[v1.GetCampaignRequest]) (*connect.Response[v1.GetCampaignResponse], error) {
 	return c.getCampaign.CallUnary(ctx, req)
 }
 
 // IssueCoupon calls coupon.v1.CouponService.IssueCoupon.
-func (c *couponServiceClient) IssueCoupon(ctx context.Context, req *connect.Request[coupon.IssueCouponRequest]) (*connect.Response[coupon.IssueCouponResponse], error) {
+func (c *couponServiceClient) IssueCoupon(ctx context.Context, req *connect.Request[v1.IssueCouponRequest]) (*connect.Response[v1.IssueCouponResponse], error) {
 	return c.issueCoupon.CallUnary(ctx, req)
 }
 
 // CouponServiceHandler is an implementation of the coupon.v1.CouponService service.
 type CouponServiceHandler interface {
-	CreateCampaign(context.Context, *connect.Request[coupon.CreateCampaignRequest]) (*connect.Response[coupon.CreateCampaignResponse], error)
-	GetCampaign(context.Context, *connect.Request[coupon.GetCampaignRequest]) (*connect.Response[coupon.GetCampaignResponse], error)
-	IssueCoupon(context.Context, *connect.Request[coupon.IssueCouponRequest]) (*connect.Response[coupon.IssueCouponResponse], error)
+	CreateCampaign(context.Context, *connect.Request[v1.CreateCampaignRequest]) (*connect.Response[v1.CreateCampaignResponse], error)
+	GetCampaign(context.Context, *connect.Request[v1.GetCampaignRequest]) (*connect.Response[v1.GetCampaignResponse], error)
+	IssueCoupon(context.Context, *connect.Request[v1.IssueCouponRequest]) (*connect.Response[v1.IssueCouponResponse], error)
 }
 
 // NewCouponServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -118,7 +118,7 @@ type CouponServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewCouponServiceHandler(svc CouponServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	couponServiceMethods := coupon.File_coupon_v1_coupon_proto.Services().ByName("CouponService").Methods()
+	couponServiceMethods := v1.File_coupon_v1_coupon_proto.Services().ByName("CouponService").Methods()
 	couponServiceCreateCampaignHandler := connect.NewUnaryHandler(
 		CouponServiceCreateCampaignProcedure,
 		svc.CreateCampaign,
@@ -154,14 +154,14 @@ func NewCouponServiceHandler(svc CouponServiceHandler, opts ...connect.HandlerOp
 // UnimplementedCouponServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedCouponServiceHandler struct{}
 
-func (UnimplementedCouponServiceHandler) CreateCampaign(context.Context, *connect.Request[coupon.CreateCampaignRequest]) (*connect.Response[coupon.CreateCampaignResponse], error) {
+func (UnimplementedCouponServiceHandler) CreateCampaign(context.Context, *connect.Request[v1.CreateCampaignRequest]) (*connect.Response[v1.CreateCampaignResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("coupon.v1.CouponService.CreateCampaign is not implemented"))
 }
 
-func (UnimplementedCouponServiceHandler) GetCampaign(context.Context, *connect.Request[coupon.GetCampaignRequest]) (*connect.Response[coupon.GetCampaignResponse], error) {
+func (UnimplementedCouponServiceHandler) GetCampaign(context.Context, *connect.Request[v1.GetCampaignRequest]) (*connect.Response[v1.GetCampaignResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("coupon.v1.CouponService.GetCampaign is not implemented"))
 }
 
-func (UnimplementedCouponServiceHandler) IssueCoupon(context.Context, *connect.Request[coupon.IssueCouponRequest]) (*connect.Response[coupon.IssueCouponResponse], error) {
+func (UnimplementedCouponServiceHandler) IssueCoupon(context.Context, *connect.Request[v1.IssueCouponRequest]) (*connect.Response[v1.IssueCouponResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("coupon.v1.CouponService.IssueCoupon is not implemented"))
 }

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package coupon.v1;
 
-option go_package = "coupon-issuance/coupon";
+option go_package = "coupon-issuance/gen/coupon/v1";
 
 service CouponService {
   rpc CreateCampaign(CreateCampaignRequest) returns (CreateCampaignResponse);

@@ -4,7 +4,7 @@
 // 	protoc        (unknown)
 // source: coupon/v1/coupon.proto
 
-package coupon
+package v1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -356,7 +356,7 @@ const file_coupon_v1_coupon_proto_rawDesc = "" +
 	"\rCouponService\x12U\n" +
 	"\x0eCreateCampaign\x12 .coupon.v1.CreateCampaignRequest\x1a!.coupon.v1.CreateCampaignResponse\x12L\n" +
 	"\vGetCampaign\x12\x1d.coupon.v1.GetCampaignRequest\x1a\x1e.coupon.v1.GetCampaignResponse\x12L\n" +
-	"\vIssueCoupon\x12\x1d.coupon.v1.IssueCouponRequest\x1a\x1e.coupon.v1.IssueCouponResponseB\x18Z\x16coupon-issuance/couponb\x06proto3"
+	"\vIssueCoupon\x12\x1d.coupon.v1.IssueCouponRequest\x1a\x1e.coupon.v1.IssueCouponResponseB\x1fZ\x1dcoupon-issuance/gen/coupon/v1b\x06proto3"
 
 var (
 	file_coupon_v1_coupon_proto_rawDescOnce sync.Once

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	coupon "coupon-issuance/gen/coupon/v1"
+	couponConnect "coupon-issuance/gen/coupon/v1/v1connect"
 
 	"connectrpc.com/connect"
 )
@@ -29,12 +30,12 @@ func (s *CouponServer) IssueCoupon(ctx context.Context, req *connect.Request[cou
 
 func main() {
 	server := &CouponServer{}
-	path, handler := coupon.NewCouponServiceHandler(server)
+	path, handler := couponConnect.NewCouponServiceHandler(server)
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)
 
-	log.Printf("Server listening at http://localhost:8080")
-	if err := http.ListenAndServe("localhost:8080", mux); err != nil {
+	log.Printf("Server listening at http://localhost:8000")
+	if err := http.ListenAndServe("localhost:8000", mux); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }
