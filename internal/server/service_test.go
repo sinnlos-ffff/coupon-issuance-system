@@ -27,8 +27,9 @@ func setupTestService(t *testing.T) *CouponService {
 	require.NoError(t, err)
 
 	service := &CouponService{
-		pool:  pool,
-		redis: redisClient,
+		pool:    pool,
+		redis:   redisClient,
+		codeGen: newCodeGenerator(),
 	}
 
 	// clean up database
@@ -149,4 +150,110 @@ func TestCreateCampaign(t *testing.T) {
 			assert.Equal(t, int32(val), tt.request.CouponLimit)
 		})
 	}
+}
+
+func TestCouponService_IssueCoupon(t *testing.T) {
+	service := setupTestService(t)
+	ctx := context.Background()
+
+	// Create a test campaign
+	campaignID := "00000000-0000-0000-0000-000000000000"
+	_, err := service.pool.Exec(ctx,
+		`INSERT INTO campaigns (id, name, start_time, coupon_limit, status)
+		VALUES ($1, $2, $3, $4, $5)`,
+		campaignID,
+		"Test Campaign",
+		time.Now(),
+		2, // Coupon limit
+		"active",
+	)
+	require.NoError(t, err)
+
+	counterKey := fmt.Sprintf("%s%s", campaignCounterKey, campaignID)
+	err = service.redis.Set(ctx, counterKey, 2, 0).Err()
+	require.NoError(t, err)
+
+	t.Run("successful coupon issuance", func(t *testing.T) {
+		resp, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
+			CampaignId: campaignID,
+		}))
+		require.NoError(t, err)
+		assert.NotEmpty(t, resp.Msg.CouponCode)
+		assert.Equal(t, 10, len([]rune(resp.Msg.CouponCode))) // Check code length
+	})
+
+	t.Run("campaign not found", func(t *testing.T) {
+		_, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
+			CampaignId: "non-existent-id",
+		}))
+		require.Error(t, err)
+		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+	})
+
+	t.Run("inactive campaign", func(t *testing.T) {
+		// Update campaign status to finished
+		_, err := service.pool.Exec(ctx,
+			`UPDATE campaigns SET status = 'finished' WHERE id = $1`,
+			campaignID,
+		)
+		require.NoError(t, err)
+
+		_, err = service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
+			CampaignId: campaignID,
+		}))
+		require.Error(t, err)
+		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+
+		// Reset status back to active
+		_, err = service.pool.Exec(ctx,
+			`UPDATE campaigns SET status = 'active' WHERE id = $1`,
+			campaignID,
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("coupon limit reached", func(t *testing.T) {
+		// Set counter to 0
+		err := service.redis.Set(ctx, counterKey, 0, 0).Err()
+		require.NoError(t, err)
+
+		_, err = service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
+			CampaignId: campaignID,
+		}))
+		require.Error(t, err)
+		assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
+	})
+
+	t.Run("concurrent coupon issuance", func(t *testing.T) {
+		// Reset counter to 2
+		err := service.redis.Set(ctx, counterKey, 2, 0).Err()
+		require.NoError(t, err)
+
+		// Try to issue 3 coupons concurrently
+		results := make(chan error, 3)
+		for i := 0; i < 3; i++ {
+			go func() {
+				_, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
+					CampaignId: campaignID,
+				}))
+				results <- err
+			}()
+		}
+
+		// Collect results
+		successCount := 0
+		exhaustedCount := 0
+		for i := 0; i < 3; i++ {
+			err := <-results
+			if err == nil {
+				successCount++
+			} else if connect.CodeOf(err) == connect.CodeResourceExhausted {
+				exhaustedCount++
+			}
+		}
+
+		// Should have exactly 2 successful issuances and 1 exhausted
+		assert.Equal(t, 2, successCount)
+		assert.Equal(t, 1, exhaustedCount)
+	})
 }

@@ -210,8 +210,67 @@ func (s *CouponService) IssueCoupon(
 	ctx context.Context,
 	req *IssueCouponReq,
 ) (*IssueCouponResp, error) {
-	// TODO: Implement coupon issuance logic
-	return connect.NewResponse(&coupon.IssueCouponResponse{}), nil
+	// Check if campaign exists and is active
+	var status string
+	err := s.pool.QueryRow(ctx,
+		`SELECT status FROM campaigns WHERE id = $1`,
+		req.Msg.CampaignId,
+	).Scan(&status)
+
+	if err != nil {
+		return nil, connect.NewError(
+			connect.CodeNotFound,
+			fmt.Errorf("campaign not found: %v", err),
+		)
+	}
+
+	if status != "active" {
+		return nil, connect.NewError(
+			connect.CodeFailedPrecondition,
+			fmt.Errorf("campaign is not active (status: %s)", status),
+		)
+	}
+
+	counterKey := fmt.Sprintf("%s%s", campaignCounterKey, req.Msg.CampaignId)
+
+	// Lua script to atomically check and decrement
+	script := `
+		local current = redis.call('GET', KEYS[1])
+		if not current or tonumber(current) <= 0 then
+			return -1
+		end
+		return redis.call('DECR', KEYS[1])
+	`
+
+	remaining, err := s.redis.Eval(ctx, script, []string{counterKey}).Int64()
+	if err != nil {
+		return nil, connect.NewError(
+			connect.CodeInternal,
+			fmt.Errorf("failed to check coupon availability: %v", err),
+		)
+	}
+
+	if remaining == -1 {
+		return nil, connect.NewError(
+			connect.CodeResourceExhausted,
+			fmt.Errorf("campaign has reached its coupon limit"),
+		)
+	}
+
+	// Generate a unique coupon code
+	code, err := s.codeGen.GenerateCouponCode(ctx, s.pool, req.Msg.CampaignId)
+	if err != nil {
+		// Increment back
+		s.redis.Incr(ctx, counterKey)
+		return nil, connect.NewError(
+			connect.CodeInternal,
+			fmt.Errorf("failed to generate coupon code: %v", err),
+		)
+	}
+
+	return connect.NewResponse(&coupon.IssueCouponResponse{
+		CouponCode: code,
+	}), nil
 }
 
 func (s *CouponService) Close() {

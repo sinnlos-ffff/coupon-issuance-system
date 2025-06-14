@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"strings"
 	"sync"
@@ -169,7 +168,7 @@ func (g *codeGenerator) GenerateCouponCode(
 	campaignID string,
 ) (string, error) {
 	if err := g.refillPool(ctx, pool); err != nil {
-		log.Printf("Failed to refill code pool: %v", err)
+		return "", err
 	}
 
 	g.mu.Lock()
