@@ -2,13 +2,16 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"time"
 
 	coupon "coupon-issuance/gen/coupon/v1"
 	"coupon-issuance/internal/database"
 	redisclient "coupon-issuance/internal/redis"
 
 	"connectrpc.com/connect"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
@@ -18,7 +21,6 @@ type CouponService struct {
 	redis *redis.Client
 }
 
-// NewCouponService creates a new instance of CouponService
 func NewCouponService() *CouponService {
 	ctx := context.Background()
 
@@ -52,8 +54,28 @@ func (s *CouponService) CreateCampaign(
 	ctx context.Context,
 	req *CreateCampaignReq,
 ) (*CreateCampaignResp, error) {
-	// TODO: Implement campaign creation logic
-	return connect.NewResponse(&coupon.CreateCampaignResponse{}), nil
+	startTime, err := time.Parse(time.RFC3339, req.Msg.StartTime)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid start_time format: %v", err))
+	}
+
+	var campaignID pgtype.UUID
+	err = s.pool.QueryRow(ctx,
+		`INSERT INTO campaigns (name, start_time, coupon_limit)
+		VALUES ($1, $2, $3)
+		RETURNING id`,
+		req.Msg.Name,
+		startTime,
+		req.Msg.CouponLimit,
+	).Scan(&campaignID)
+
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create campaign: %v", err))
+	}
+
+	return connect.NewResponse(&coupon.CreateCampaignResponse{
+		CampaignId: campaignID.String(),
+	}), nil
 }
 
 func (s *CouponService) GetCampaign(
