@@ -2,21 +2,40 @@ package server
 
 import (
 	"context"
+	"log"
 
 	coupon "coupon-issuance/gen/coupon/v1"
+	"coupon-issuance/internal/database"
+	redisclient "coupon-issuance/internal/redis"
 
 	"connectrpc.com/connect"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 type CouponService struct {
-	pool *pgxpool.Pool
+	pool  *pgxpool.Pool
+	redis *redis.Client
 }
 
 // NewCouponService creates a new instance of CouponService
-func NewCouponService(pool *pgxpool.Pool) *CouponService {
+func NewCouponService() *CouponService {
+	ctx := context.Background()
+
+	pool, err := database.NewPool(ctx)
+	if err != nil {
+		log.Fatalf("Failed to create database pool: %v", err)
+	}
+
+	redisCfg := redisclient.NewConfig()
+	redisClient, err := redisclient.NewClient(redisCfg)
+	if err != nil {
+		log.Fatalf("Failed to create Redis client: %v", err)
+	}
+
 	return &CouponService{
-		pool: pool,
+		pool:  pool,
+		redis: redisClient,
 	}
 }
 
@@ -33,4 +52,13 @@ func (s *CouponService) GetCampaign(ctx context.Context, req *connect.Request[co
 func (s *CouponService) IssueCoupon(ctx context.Context, req *connect.Request[coupon.IssueCouponRequest]) (*connect.Response[coupon.IssueCouponResponse], error) {
 	// TODO: Implement coupon issuance logic
 	return connect.NewResponse(&coupon.IssueCouponResponse{}), nil
+}
+
+func (s *CouponService) Close() {
+	if s.pool != nil {
+		s.pool.Close()
+	}
+	if s.redis != nil {
+		s.redis.Close()
+	}
 }
