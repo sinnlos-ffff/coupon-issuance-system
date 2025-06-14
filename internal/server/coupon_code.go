@@ -162,7 +162,7 @@ func (g *codeGenerator) refillPool(
 	return nil
 }
 
-func (g *codeGenerator) GenerateCouponCode(
+func (g *codeGenerator) generateCouponCode(
 	ctx context.Context,
 	pool *pgxpool.Pool,
 	campaignID string,
@@ -179,4 +179,10 @@ func (g *codeGenerator) GenerateCouponCode(
 	g.usedCoupons[code] = campaignID
 
 	return code, nil
+}
+
+func (g *codeGenerator) hasPendingCodes() bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return len(g.usedCoupons) > 0
 }

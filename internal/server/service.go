@@ -40,7 +40,7 @@ func (s *CouponService) updateCampaignStatus(
 }
 
 func (s *CouponService) startCampaignStatusWorker(ctx context.Context) {
-	// Could be shortened if desired
+	// Could be adjusted if desired
 	interval := time.Second
 
 	for {
@@ -92,6 +92,32 @@ func (s *CouponService) startCampaignStatusWorker(ctx context.Context) {
 	}
 }
 
+func (s *CouponService) startCouponCodeWriter(ctx context.Context) {
+	// Flush codes every second
+	interval := time.Second
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			// Final flush on shutdown
+			if err := s.codeGen.writeIssuedCodes(ctx, s.pool); err != nil {
+				log.Printf("Failed to write issued codes during shutdown: %v", err)
+			}
+			return
+		case <-ticker.C:
+			// Check if we have any codes to write
+			if s.codeGen.hasPendingCodes() {
+				if err := s.codeGen.writeIssuedCodes(ctx, s.pool); err != nil {
+					log.Printf("Failed to write issued codes: %v", err)
+				}
+			}
+		}
+	}
+}
+
 func NewCouponService() *CouponService {
 	ctx := context.Background()
 
@@ -115,6 +141,7 @@ func NewCouponService() *CouponService {
 	}
 
 	go service.startCampaignStatusWorker(ctx)
+	go service.startCouponCodeWriter(ctx)
 
 	return service
 }
@@ -258,7 +285,7 @@ func (s *CouponService) IssueCoupon(
 	}
 
 	// Generate a unique coupon code
-	code, err := s.codeGen.GenerateCouponCode(ctx, s.pool, req.Msg.CampaignId)
+	code, err := s.codeGen.generateCouponCode(ctx, s.pool, req.Msg.CampaignId)
 	if err != nil {
 		// Increment back
 		s.redis.Incr(ctx, counterKey)

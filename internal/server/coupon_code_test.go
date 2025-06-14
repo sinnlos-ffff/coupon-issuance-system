@@ -46,7 +46,7 @@ func TestCodeGenerator_GenerateCouponCode(t *testing.T) {
 	campaignID := "00000000-0000-0000-0000-000000000000"
 
 	// Test generating a single code
-	code, err := generator.GenerateCouponCode(ctx, pool, campaignID)
+	code, err := generator.generateCouponCode(ctx, pool, campaignID)
 	require.NoError(t, err)
 	assert.NotEmpty(t, code)
 	assert.Equal(t, len([]rune(code)), 10)
@@ -54,7 +54,7 @@ func TestCodeGenerator_GenerateCouponCode(t *testing.T) {
 	// Test code uniqueness
 	codes := make(map[string]bool)
 	for i := 0; i < 100; i++ {
-		code, err := generator.GenerateCouponCode(ctx, pool, campaignID)
+		code, err := generator.generateCouponCode(ctx, pool, campaignID)
 		require.NoError(t, err)
 		assert.False(t, codes[code], "Generated duplicate code: %s", code)
 		codes[code] = true
@@ -72,7 +72,7 @@ func TestCodeGenerator_ConcurrentAccess(t *testing.T) {
 	// Generate codes concurrently
 	for i := 0; i < 1000; i++ {
 		go func() {
-			code, err := generator.GenerateCouponCode(ctx, pool, campaignID)
+			code, err := generator.generateCouponCode(ctx, pool, campaignID)
 			if err != nil {
 				errors <- err
 				return
@@ -103,7 +103,7 @@ func TestCodeGenerator_WriteIssuedCodes(t *testing.T) {
 
 	codes := make([]string, 10)
 	for i := 0; i < 10; i++ {
-		code, err := generator.GenerateCouponCode(ctx, pool, campaignID)
+		code, err := generator.generateCouponCode(ctx, pool, campaignID)
 		require.NoError(t, err)
 		codes[i] = code
 	}
@@ -139,7 +139,7 @@ func TestCodeGenerator_RefillPool(t *testing.T) {
 	// Test pool refill after using some codes
 	for i := 0; i < len(generator.codePool); i++ {
 		go func() {
-			_, err := generator.GenerateCouponCode(ctx, pool, campaignID)
+			_, err := generator.generateCouponCode(ctx, pool, campaignID)
 			require.NoError(t, err)
 		}()
 	}
