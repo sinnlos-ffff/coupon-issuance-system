@@ -110,7 +110,7 @@ func TestCodeGenerator_WriteIssuedCodes(t *testing.T) {
 
 	err := generator.writeIssuedCodes(ctx, pool)
 	require.NoError(t, err)
-	assert.Equal(t, len(generator.usedCodes), 0)
+	assert.Equal(t, len(generator.usedCoupons), 0)
 
 	for _, code := range codes {
 		var exists bool

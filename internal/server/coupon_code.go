@@ -20,18 +20,18 @@ const (
 )
 
 type codeGenerator struct {
-	mu        sync.Mutex
-	codePool  []string
-	usedCodes map[string]string // map of code to campaign ID
-	batchSize int
+	mu          sync.Mutex
+	codePool    []string
+	usedCoupons map[string]string // map of code to campaign ID
+	batchSize   int
 }
 
 func newCodeGenerator() *codeGenerator {
 	batchSize := 1000
 	return &codeGenerator{
-		batchSize: batchSize,
-		codePool:  make([]string, 0, batchSize),
-		usedCodes: make(map[string]string, batchSize),
+		batchSize:   batchSize,
+		codePool:    make([]string, 0, batchSize),
+		usedCoupons: make(map[string]string, batchSize),
 	}
 }
 
@@ -65,19 +65,19 @@ func (g *codeGenerator) writeIssuedCodes(
 	pool *pgxpool.Pool,
 ) error {
 	g.mu.Lock()
-	if len(g.usedCodes) == 0 {
+	if len(g.usedCoupons) == 0 {
 		g.mu.Unlock()
 		return nil
 	}
 
 	// Take a copy of used codes and clear the map
-	codes := make([]string, 0, len(g.usedCodes))
-	campaignIDs := make([]string, 0, len(g.usedCodes))
-	for code, campaignID := range g.usedCodes {
+	codes := make([]string, 0, len(g.usedCoupons))
+	campaignIDs := make([]string, 0, len(g.usedCoupons))
+	for code, campaignID := range g.usedCoupons {
 		codes = append(codes, code)
 		campaignIDs = append(campaignIDs, campaignID)
 	}
-	g.usedCodes = make(map[string]string)
+	g.usedCoupons = make(map[string]string)
 	g.mu.Unlock()
 
 	// Prepare batch insert
@@ -104,7 +104,7 @@ func (g *codeGenerator) writeIssuedCodes(
 		// If write fails, put the codes back in usedCodes
 		g.mu.Lock()
 		for i := range codes {
-			g.usedCodes[codes[i]] = campaignIDs[i]
+			g.usedCoupons[codes[i]] = campaignIDs[i]
 		}
 		g.mu.Unlock()
 		return fmt.Errorf("failed to write used codes: %w", err)
@@ -177,7 +177,7 @@ func (g *codeGenerator) GenerateCouponCode(
 
 	code := g.codePool[0]
 	g.codePool = g.codePool[1:]
-	g.usedCodes[code] = campaignID
+	g.usedCoupons[code] = campaignID
 
 	return code, nil
 }
