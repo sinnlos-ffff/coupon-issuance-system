@@ -14,14 +14,11 @@ CREATE TABLE IF NOT EXISTS coupons (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     campaign_id UUID NOT NULL REFERENCES campaigns(id),
     code VARCHAR(50) NOT NULL UNIQUE,
-    issued BOOLEAN NOT NULL DEFAULT false,
-    issued_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_coupons_campaign_id ON coupons(campaign_id);
-CREATE INDEX IF NOT EXISTS idx_coupons_issued ON coupons(issued);
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

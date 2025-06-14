@@ -18,7 +18,7 @@ type Config struct {
 
 func NewConfig() *Config {
 	return &Config{
-		Host:     utils.GetEnv("REDIS_HOST", "localhost"),
+		Host:     utils.GetEnv("REDIS_HOST", "redis"),
 		Port:     utils.GetEnv("REDIS_PORT", "6379"),
 		Password: utils.GetEnv("REDIS_PASSWORD", ""),
 		DB:       0, // use default DB
@@ -30,6 +30,7 @@ func NewClient(cfg *Config) (*redis.Client, error) {
 		Addr:     fmt.Sprintf("%s:%s", cfg.Host, cfg.Port),
 		Password: cfg.Password,
 		DB:       cfg.DB,
+		Network:  "tcp4", // Force IPv4
 	})
 
 	// health check
