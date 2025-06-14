@@ -13,7 +13,6 @@ services:
       - POSTGRES_USER=coupon_user
       - POSTGRES_PASSWORD=coupon_password
       - POSTGRES_DB=coupon_db
-    command: ./server
     depends_on:
       redis:
         condition: service_healthy
