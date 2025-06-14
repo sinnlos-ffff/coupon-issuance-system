@@ -12,8 +12,8 @@ import (
 )
 
 func main() {
-	couponServer := &server.CouponServer{}
-	path, handler := couponConnect.NewCouponServiceHandler(couponServer)
+	couponService := &server.CouponService{}
+	path, handler := couponConnect.NewCouponServiceHandler(couponService)
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)
 
