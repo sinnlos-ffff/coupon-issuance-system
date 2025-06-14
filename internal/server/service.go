@@ -28,8 +28,9 @@ type campaignStatusUpdate struct {
 }
 
 type CouponService struct {
-	pool  *pgxpool.Pool
-	redis *redis.Client
+	pool    *pgxpool.Pool
+	redis   *redis.Client
+	codeGen *codeGenerator
 }
 
 func (s *CouponService) updateCampaignStatus(ctx context.Context, campaignID string) error {
@@ -98,9 +99,12 @@ func NewCouponService() *CouponService {
 		log.Fatalf("Failed to create Redis client: %v", err)
 	}
 
+	codeGen := newCodeGenerator()
+
 	service := &CouponService{
-		pool:  pool,
-		redis: redisClient,
+		pool:    pool,
+		redis:   redisClient,
+		codeGen: codeGen,
 	}
 
 	go service.startCampaignStatusWorker(ctx)
