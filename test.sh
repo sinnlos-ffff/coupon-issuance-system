@@ -1,0 +1,1 @@
+POSTGRES_HOST=localhost REDIS_HOST=localhost go test -v -count=1 ./internal/server 
