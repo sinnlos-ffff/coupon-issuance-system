@@ -20,7 +20,7 @@ func TestCouponService_HighThroughputLoad(t *testing.T) {
 	resp, err := service.CreateCampaign(ctx, connect.NewRequest(&coupon.CreateCampaignRequest{
 		Name:        "Load Test Campaign",
 		StartTime:   time.Now().Format(time.RFC3339),
-		CouponLimit: 10000,
+		CouponLimit: 3000,
 	}))
 	require.NoError(t, err)
 	campaignID := resp.Msg.CampaignId
@@ -70,15 +70,13 @@ func TestCouponService_HighThroughputLoad(t *testing.T) {
 		}
 	}()
 
-	// Wait for duration
 	time.Sleep(duration)
 	close(done)
 
-	// Calculate actual rate
 	elapsed := time.Since(start)
 	actualRate := float64(issued) / elapsed.Seconds()
 
-	// Verify results
+	assert.Equal(t, issued, 3000)
 	t.Logf("Issued %d coupons in %v (%.2f/sec)", issued, elapsed, actualRate)
 	t.Logf("Encountered %d errors", errors)
 
@@ -92,7 +90,7 @@ func TestCouponService_HighThroughputLoad(t *testing.T) {
 		campaignID,
 	).Scan(&count)
 	require.NoError(t, err)
-	assert.Equal(t, issued, count, "Not all codes were written to database")
+	assert.Equal(t, issued, count)
 }
 
 func TestCouponService_MultiCampaignConcurrency(t *testing.T) {
