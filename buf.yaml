@@ -1,0 +1,4 @@
+version: v1
+name: buf.build/coupon-issuance/coupon
+deps:
+  - buf.build/googleapis/googleapis 

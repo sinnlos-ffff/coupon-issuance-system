@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package coupon.v1;
 
+option go_package = "coupon-issuance/coupon";
+
 service CouponService {
   rpc CreateCampaign(CreateCampaignRequest) returns (CreateCampaignResponse);
   rpc GetCampaign(GetCampaignRequest) returns (GetCampaignResponse);
