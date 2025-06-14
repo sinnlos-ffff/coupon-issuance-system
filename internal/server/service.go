@@ -39,17 +39,35 @@ func NewCouponService() *CouponService {
 	}
 }
 
-func (s *CouponService) CreateCampaign(ctx context.Context, req *connect.Request[coupon.CreateCampaignRequest]) (*connect.Response[coupon.CreateCampaignResponse], error) {
+type (
+	CreateCampaignReq  = connect.Request[coupon.CreateCampaignRequest]
+	CreateCampaignResp = connect.Response[coupon.CreateCampaignResponse]
+	GetCampaignReq     = connect.Request[coupon.GetCampaignRequest]
+	GetCampaignResp    = connect.Response[coupon.GetCampaignResponse]
+	IssueCouponReq     = connect.Request[coupon.IssueCouponRequest]
+	IssueCouponResp    = connect.Response[coupon.IssueCouponResponse]
+)
+
+func (s *CouponService) CreateCampaign(
+	ctx context.Context,
+	req *CreateCampaignReq,
+) (*CreateCampaignResp, error) {
 	// TODO: Implement campaign creation logic
 	return connect.NewResponse(&coupon.CreateCampaignResponse{}), nil
 }
 
-func (s *CouponService) GetCampaign(ctx context.Context, req *connect.Request[coupon.GetCampaignRequest]) (*connect.Response[coupon.GetCampaignResponse], error) {
+func (s *CouponService) GetCampaign(
+	ctx context.Context,
+	req *GetCampaignReq,
+) (*GetCampaignResp, error) {
 	// TODO: Implement campaign retrieval logic
 	return connect.NewResponse(&coupon.GetCampaignResponse{}), nil
 }
 
-func (s *CouponService) IssueCoupon(ctx context.Context, req *connect.Request[coupon.IssueCouponRequest]) (*connect.Response[coupon.IssueCouponResponse], error) {
+func (s *CouponService) IssueCoupon(
+	ctx context.Context,
+	req *IssueCouponReq,
+) (*IssueCouponResp, error) {
 	// TODO: Implement coupon issuance logic
 	return connect.NewResponse(&coupon.IssueCouponResponse{}), nil
 }
