@@ -26,25 +26,44 @@ func setupTestService(t *testing.T) *CouponService {
 	redisClient, err := redis.NewClient(redisCfg)
 	require.NoError(t, err)
 
+	codeGen := newCodeGenerator()
+
 	service := &CouponService{
 		pool:    pool,
 		redis:   redisClient,
-		codeGen: newCodeGenerator(),
+		codeGen: codeGen,
 	}
 
-	// clean up database
-	_, err = pool.Exec(ctx, "DELETE FROM campaigns")
-	require.NoError(t, err)
+	go service.startCampaignStatusWorker(ctx)
+	go service.startCouponCodeWriter(ctx)
 
-	// clean up redis
-	keys, err := redisClient.Keys(ctx, "campaign:*").Result()
-	require.NoError(t, err)
-	if len(keys) > 0 {
-		_, err = redisClient.Del(ctx, keys...).Result()
-		require.NoError(t, err)
-	}
+	// Register cleanup to run after test
+	t.Cleanup(func() {
+		cleanupTestData(t, service)
+	})
 
 	return service
+}
+
+func cleanupTestData(t *testing.T, service *CouponService) {
+	ctx := context.Background()
+
+	// Clean up database
+	_, err := service.pool.Exec(ctx, "DELETE FROM coupons")
+	require.NoError(t, err)
+	_, err = service.pool.Exec(ctx, "DELETE FROM campaigns")
+	require.NoError(t, err)
+
+	// Clean up Redis keys
+	iter := service.redis.Scan(ctx, 0, "campaign:*", 0).Iterator()
+	for iter.Next(ctx) {
+		err := service.redis.Del(ctx, iter.Val()).Err()
+		require.NoError(t, err)
+	}
+	require.NoError(t, iter.Err())
+
+	// Stop background workers and close connections
+	service.Close()
 }
 
 func TestCreateCampaign(t *testing.T) {
@@ -104,7 +123,6 @@ func TestCreateCampaign(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			service := setupTestService(t)
-			defer service.Close()
 
 			req := connect.NewRequest(tt.request)
 			resp, err := service.CreateCampaign(ctx, req)

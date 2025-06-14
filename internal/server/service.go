@@ -23,17 +23,35 @@ const (
 )
 
 type CouponService struct {
-	pool    *pgxpool.Pool
-	redis   *redis.Client
-	codeGen *codeGenerator
+	pool                    *pgxpool.Pool
+	redis                   *redis.Client
+	codeGen                 *codeGenerator
+	cancelBackgroundWorkers context.CancelFunc
 }
 
 func (s *CouponService) updateCampaignStatus(
 	ctx context.Context,
 	campaignID string,
 ) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE campaigns SET status = 'active' WHERE id = $1`,
+	// First check if the campaign exists and get its current status
+	var currentStatus string
+	err := s.pool.QueryRow(ctx,
+		`SELECT status FROM campaigns WHERE id = $1`,
+		campaignID,
+	).Scan(&currentStatus)
+
+	if err != nil {
+		return fmt.Errorf("failed to get campaign status: %w", err)
+	}
+
+	// Only update if the campaign is in 'scheduled' state
+	if currentStatus != "scheduled" {
+		return nil // Campaign is already active or finished, no need to update
+	}
+
+	// Update the status to active
+	_, err = s.pool.Exec(ctx,
+		`UPDATE campaigns SET status = 'active' WHERE id = $1 AND status = 'scheduled'`,
 		campaignID,
 	)
 	return err
@@ -95,6 +113,7 @@ func (s *CouponService) startCampaignStatusWorker(ctx context.Context) {
 func (s *CouponService) startCouponCodeWriter(ctx context.Context) {
 	// Flush codes every second
 	interval := time.Second
+	rootCtx := context.Background()
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -103,14 +122,14 @@ func (s *CouponService) startCouponCodeWriter(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			// Final flush on shutdown
-			if err := s.codeGen.writeIssuedCodes(ctx, s.pool); err != nil {
+			if err := s.codeGen.writeIssuedCodes(rootCtx, s.pool); err != nil {
 				log.Printf("Failed to write issued codes during shutdown: %v", err)
 			}
 			return
 		case <-ticker.C:
 			// Check if we have any codes to write
 			if s.codeGen.hasPendingCodes() {
-				if err := s.codeGen.writeIssuedCodes(ctx, s.pool); err != nil {
+				if err := s.codeGen.writeIssuedCodes(rootCtx, s.pool); err != nil {
 					log.Printf("Failed to write issued codes: %v", err)
 				}
 			}
@@ -120,6 +139,7 @@ func (s *CouponService) startCouponCodeWriter(ctx context.Context) {
 
 func NewCouponService() *CouponService {
 	ctx := context.Background()
+	backgroundCtx, cancel := context.WithCancel(ctx)
 
 	pool, err := database.NewPool(ctx)
 	if err != nil {
@@ -135,13 +155,14 @@ func NewCouponService() *CouponService {
 	codeGen := newCodeGenerator()
 
 	service := &CouponService{
-		pool:    pool,
-		redis:   redisClient,
-		codeGen: codeGen,
+		pool:                    pool,
+		redis:                   redisClient,
+		codeGen:                 codeGen,
+		cancelBackgroundWorkers: cancel,
 	}
 
-	go service.startCampaignStatusWorker(ctx)
-	go service.startCouponCodeWriter(ctx)
+	go service.startCampaignStatusWorker(backgroundCtx)
+	go service.startCouponCodeWriter(backgroundCtx)
 
 	return service
 }
@@ -301,6 +322,9 @@ func (s *CouponService) IssueCoupon(
 }
 
 func (s *CouponService) Close() {
+	if s.cancelBackgroundWorkers != nil {
+		s.cancelBackgroundWorkers()
+	}
 	if s.pool != nil {
 		s.pool.Close()
 	}
