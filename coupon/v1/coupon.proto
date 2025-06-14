@@ -11,19 +11,30 @@ service CouponService {
 }
 
 message CreateCampaignRequest {
+  string name = 1;
+  string start_time = 2;
+  int32 coupon_limit = 3;
 }
 
 message CreateCampaignResponse {
+  string campaign_id = 1;
 }
 
 message GetCampaignRequest {
+  string campaign_id = 1;
 }
 
 message GetCampaignResponse {
+  string name = 1;
+  string start_time = 2;
+  string status = 3;
+  repeated string issued_coupons = 4;
 }
 
 message IssueCouponRequest {
+  string campaign_id = 1;
 }
 
 message IssueCouponResponse {
+  string coupon_code = 1;
 }

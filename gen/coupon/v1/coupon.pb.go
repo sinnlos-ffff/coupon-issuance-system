@@ -23,6 +23,9 @@ const (
 
 type CreateCampaignRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	StartTime     string                 `protobuf:"bytes,2,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	CouponLimit   int32                  `protobuf:"varint,3,opt,name=coupon_limit,json=couponLimit,proto3" json:"coupon_limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -57,8 +60,30 @@ func (*CreateCampaignRequest) Descriptor() ([]byte, []int) {
 	return file_coupon_v1_coupon_proto_rawDescGZIP(), []int{0}
 }
 
+func (x *CreateCampaignRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateCampaignRequest) GetStartTime() string {
+	if x != nil {
+		return x.StartTime
+	}
+	return ""
+}
+
+func (x *CreateCampaignRequest) GetCouponLimit() int32 {
+	if x != nil {
+		return x.CouponLimit
+	}
+	return 0
+}
+
 type CreateCampaignResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	CampaignId    string                 `protobuf:"bytes,1,opt,name=campaign_id,json=campaignId,proto3" json:"campaign_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -93,8 +118,16 @@ func (*CreateCampaignResponse) Descriptor() ([]byte, []int) {
 	return file_coupon_v1_coupon_proto_rawDescGZIP(), []int{1}
 }
 
+func (x *CreateCampaignResponse) GetCampaignId() string {
+	if x != nil {
+		return x.CampaignId
+	}
+	return ""
+}
+
 type GetCampaignRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	CampaignId    string                 `protobuf:"bytes,1,opt,name=campaign_id,json=campaignId,proto3" json:"campaign_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -129,8 +162,19 @@ func (*GetCampaignRequest) Descriptor() ([]byte, []int) {
 	return file_coupon_v1_coupon_proto_rawDescGZIP(), []int{2}
 }
 
+func (x *GetCampaignRequest) GetCampaignId() string {
+	if x != nil {
+		return x.CampaignId
+	}
+	return ""
+}
+
 type GetCampaignResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	StartTime     string                 `protobuf:"bytes,2,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	IssuedCoupons []string               `protobuf:"bytes,4,rep,name=issued_coupons,json=issuedCoupons,proto3" json:"issued_coupons,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -165,8 +209,37 @@ func (*GetCampaignResponse) Descriptor() ([]byte, []int) {
 	return file_coupon_v1_coupon_proto_rawDescGZIP(), []int{3}
 }
 
+func (x *GetCampaignResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *GetCampaignResponse) GetStartTime() string {
+	if x != nil {
+		return x.StartTime
+	}
+	return ""
+}
+
+func (x *GetCampaignResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *GetCampaignResponse) GetIssuedCoupons() []string {
+	if x != nil {
+		return x.IssuedCoupons
+	}
+	return nil
+}
+
 type IssueCouponRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	CampaignId    string                 `protobuf:"bytes,1,opt,name=campaign_id,json=campaignId,proto3" json:"campaign_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -201,8 +274,16 @@ func (*IssueCouponRequest) Descriptor() ([]byte, []int) {
 	return file_coupon_v1_coupon_proto_rawDescGZIP(), []int{4}
 }
 
+func (x *IssueCouponRequest) GetCampaignId() string {
+	if x != nil {
+		return x.CampaignId
+	}
+	return ""
+}
+
 type IssueCouponResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	CouponCode    string                 `protobuf:"bytes,1,opt,name=coupon_code,json=couponCode,proto3" json:"coupon_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -237,17 +318,41 @@ func (*IssueCouponResponse) Descriptor() ([]byte, []int) {
 	return file_coupon_v1_coupon_proto_rawDescGZIP(), []int{5}
 }
 
+func (x *IssueCouponResponse) GetCouponCode() string {
+	if x != nil {
+		return x.CouponCode
+	}
+	return ""
+}
+
 var File_coupon_v1_coupon_proto protoreflect.FileDescriptor
 
 const file_coupon_v1_coupon_proto_rawDesc = "" +
 	"\n" +
-	"\x16coupon/v1/coupon.proto\x12\tcoupon.v1\"\x17\n" +
-	"\x15CreateCampaignRequest\"\x18\n" +
-	"\x16CreateCampaignResponse\"\x14\n" +
-	"\x12GetCampaignRequest\"\x15\n" +
-	"\x13GetCampaignResponse\"\x14\n" +
-	"\x12IssueCouponRequest\"\x15\n" +
-	"\x13IssueCouponResponse2\x82\x02\n" +
+	"\x16coupon/v1/coupon.proto\x12\tcoupon.v1\"m\n" +
+	"\x15CreateCampaignRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"start_time\x18\x02 \x01(\tR\tstartTime\x12!\n" +
+	"\fcoupon_limit\x18\x03 \x01(\x05R\vcouponLimit\"9\n" +
+	"\x16CreateCampaignResponse\x12\x1f\n" +
+	"\vcampaign_id\x18\x01 \x01(\tR\n" +
+	"campaignId\"5\n" +
+	"\x12GetCampaignRequest\x12\x1f\n" +
+	"\vcampaign_id\x18\x01 \x01(\tR\n" +
+	"campaignId\"\x87\x01\n" +
+	"\x13GetCampaignResponse\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"start_time\x18\x02 \x01(\tR\tstartTime\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12%\n" +
+	"\x0eissued_coupons\x18\x04 \x03(\tR\rissuedCoupons\"5\n" +
+	"\x12IssueCouponRequest\x12\x1f\n" +
+	"\vcampaign_id\x18\x01 \x01(\tR\n" +
+	"campaignId\"6\n" +
+	"\x13IssueCouponResponse\x12\x1f\n" +
+	"\vcoupon_code\x18\x01 \x01(\tR\n" +
+	"couponCode2\x82\x02\n" +
 	"\rCouponService\x12U\n" +
 	"\x0eCreateCampaign\x12 .coupon.v1.CreateCampaignRequest\x1a!.coupon.v1.CreateCampaignResponse\x12L\n" +
 	"\vGetCampaign\x12\x1d.coupon.v1.GetCampaignRequest\x1a\x1e.coupon.v1.GetCampaignResponse\x12L\n" +
