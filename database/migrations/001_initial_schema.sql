@@ -2,9 +2,9 @@ CREATE TYPE campaign_status AS ENUM ('scheduled', 'active', 'finished');
 
 CREATE TABLE IF NOT EXISTS campaigns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL CHECK (length(trim(name)) > 0),
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    coupon_limit INTEGER NOT NULL,
+    coupon_limit INTEGER NOT NULL CHECK (coupon_limit > 0),
     status campaign_status NOT NULL DEFAULT 'scheduled',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

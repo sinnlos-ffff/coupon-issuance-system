@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	coupon "coupon-issuance/gen/coupon/v1"
@@ -54,6 +55,15 @@ func (s *CouponService) CreateCampaign(
 	ctx context.Context,
 	req *CreateCampaignReq,
 ) (*CreateCampaignResp, error) {
+	// Validation
+	if len(strings.TrimSpace(req.Msg.Name)) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("campaign name cannot be empty"))
+	}
+
+	if req.Msg.CouponLimit <= 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("coupon limit must be greater than 0"))
+	}
+
 	startTime, err := time.Parse(time.RFC3339, req.Msg.StartTime)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid start_time format: %v", err))
