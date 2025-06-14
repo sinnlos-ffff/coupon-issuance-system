@@ -132,7 +132,11 @@ func TestCreateCampaign(t *testing.T) {
 			assert.Equal(t, 1, count)
 
 			// Verify campaign activation in Redis
-			score, err := service.redis.ZScore(ctx, campaignActivationKey, resp.Msg.CampaignId).Result()
+			score, err := service.redis.ZScore(
+				ctx,
+				campaignActivationKey,
+				resp.Msg.CampaignId,
+			).Result()
 			assert.NoError(t, err)
 			expectedTime, err := time.Parse(time.RFC3339, tt.request.StartTime)
 			require.NoError(t, err)

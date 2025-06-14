@@ -22,18 +22,16 @@ const (
 	campaignCounterKey    = "campaign:counter:"
 )
 
-type campaignStatusUpdate struct {
-	CampaignID string    `json:"campaign_id"`
-	StartTime  time.Time `json:"start_time"`
-}
-
 type CouponService struct {
 	pool    *pgxpool.Pool
 	redis   *redis.Client
 	codeGen *codeGenerator
 }
 
-func (s *CouponService) updateCampaignStatus(ctx context.Context, campaignID string) error {
+func (s *CouponService) updateCampaignStatus(
+	ctx context.Context,
+	campaignID string,
+) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE campaigns SET status = 'active' WHERE id = $1`,
 		campaignID,
@@ -53,11 +51,12 @@ func (s *CouponService) startCampaignStatusWorker(ctx context.Context) {
 			now := time.Now().Unix()
 
 			// Get all campaigns that should be activated (score <= now)
-			results, err := s.redis.ZRangeByScore(ctx, campaignActivationKey, &redis.ZRangeBy{
-				Min:    "0",
-				Max:    fmt.Sprintf("%d", now),
-				Offset: 0,
-			}).Result()
+			results, err := s.redis.ZRangeByScore(ctx, campaignActivationKey,
+				&redis.ZRangeBy{
+					Min:    "0",
+					Max:    fmt.Sprintf("%d", now),
+					Offset: 0,
+				}).Result()
 
 			if err != nil {
 				log.Printf("Error getting campaigns to activate: %v", err)
@@ -77,8 +76,16 @@ func (s *CouponService) startCampaignStatusWorker(ctx context.Context) {
 				}
 
 				// Remove from the activation set
-				if err := s.redis.ZRem(ctx, campaignActivationKey, campaignID).Err(); err != nil {
-					log.Printf("Failed to remove campaign %s from activation set: %v", campaignID, err)
+				if err := s.redis.ZRem(
+					ctx,
+					campaignActivationKey,
+					campaignID,
+				).Err(); err != nil {
+					log.Printf(
+						"Failed to remove campaign %s from activation set: %v",
+						campaignID,
+						err,
+					)
 				}
 			}
 		}
@@ -127,16 +134,25 @@ func (s *CouponService) CreateCampaign(
 ) (*CreateCampaignResp, error) {
 	// Validation
 	if len(strings.TrimSpace(req.Msg.Name)) == 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("campaign name cannot be empty"))
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("campaign name cannot be empty"),
+		)
 	}
 
 	if req.Msg.CouponLimit <= 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("coupon limit must be greater than 0"))
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("coupon limit must be greater than 0"),
+		)
 	}
 
 	startTime, err := time.Parse(time.RFC3339, req.Msg.StartTime)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid start_time format: %v", err))
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("invalid start_time format: %v", err),
+		)
 	}
 
 	var campaignID pgtype.UUID
@@ -150,7 +166,10 @@ func (s *CouponService) CreateCampaign(
 	).Scan(&campaignID)
 
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create campaign: %v", err))
+		return nil, connect.NewError(
+			connect.CodeInternal,
+			fmt.Errorf("failed to create campaign: %v", err),
+		)
 	}
 
 	err = s.redis.ZAdd(ctx, campaignActivationKey, redis.Z{
@@ -159,13 +178,19 @@ func (s *CouponService) CreateCampaign(
 	}).Err()
 
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to schedule campaign activation: %v", err))
+		return nil, connect.NewError(
+			connect.CodeInternal,
+			fmt.Errorf("failed to schedule campaign activation: %v", err),
+		)
 	}
 
 	counterKey := fmt.Sprintf("%s%s", campaignCounterKey, campaignID.String())
 	err = s.redis.Set(ctx, counterKey, req.Msg.CouponLimit, 0).Err()
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to initialize coupon counter: %v", err))
+		return nil, connect.NewError(
+			connect.CodeInternal,
+			fmt.Errorf("failed to initialize coupon counter: %v", err),
+		)
 	}
 
 	return connect.NewResponse(&coupon.CreateCampaignResponse{

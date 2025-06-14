@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -21,7 +22,7 @@ const (
 type codeGenerator struct {
 	mu        sync.Mutex
 	codePool  []string
-	usedCodes []string
+	usedCodes map[string]string // map of code to campaign ID
 	batchSize int
 }
 
@@ -30,7 +31,7 @@ func newCodeGenerator() *codeGenerator {
 	return &codeGenerator{
 		batchSize: batchSize,
 		codePool:  make([]string, 0, batchSize),
-		usedCodes: make([]string, 0, batchSize),
+		usedCodes: make(map[string]string, batchSize),
 	}
 }
 
@@ -42,7 +43,8 @@ func generateRandomNumber() rune {
 	return rune(numberStart + rand.Intn(numberEnd-numberStart+1))
 }
 
-func (g *codeGenerator) generateBatch(length int) []string {
+func (g *codeGenerator) generateBatch() []string {
+	length := 10
 	codes := make([]string, g.batchSize)
 	for i := 0; i < g.batchSize; i++ {
 		code := make([]rune, length)
@@ -58,29 +60,42 @@ func (g *codeGenerator) generateBatch(length int) []string {
 	return codes
 }
 
-func (g *codeGenerator) writeIssuedCodes(ctx context.Context, pool *pgxpool.Pool) error {
+func (g *codeGenerator) writeIssuedCodes(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) error {
 	g.mu.Lock()
 	if len(g.usedCodes) == 0 {
 		g.mu.Unlock()
 		return nil
 	}
 
-	// Take a copy of used codes and clear the slice
-	codes := make([]string, len(g.usedCodes))
-	copy(codes, g.usedCodes)
-	g.usedCodes = g.usedCodes[:0]
+	// Take a copy of used codes and clear the map
+	codes := make([]string, 0, len(g.usedCodes))
+	campaignIDs := make([]string, 0, len(g.usedCodes))
+	for code, campaignID := range g.usedCodes {
+		codes = append(codes, code)
+		campaignIDs = append(campaignIDs, campaignID)
+	}
+	g.usedCodes = make(map[string]string)
 	g.mu.Unlock()
 
 	// Prepare batch insert
 	values := make([]string, len(codes))
-	args := make([]interface{}, len(codes))
-	for i, code := range codes {
-		values[i] = fmt.Sprintf("($%d)", i+1)
-		args[i] = code
+	args := make([]interface{}, len(codes)*2)
+	for i := range codes {
+		values[i] = fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2)
+		args[i*2] = codes[i]
+		var campaignID pgtype.UUID
+		err := campaignID.Scan(campaignIDs[i])
+		if err != nil {
+			return fmt.Errorf("failed to parse campaign ID: %w", err)
+		}
+		args[i*2+1] = campaignID
 	}
 
 	query := fmt.Sprintf(`
-		INSERT INTO coupons (code, created_at)
+		INSERT INTO coupons (code, campaign_id)
 		VALUES %s`,
 		strings.Join(values, ","))
 
@@ -88,7 +103,9 @@ func (g *codeGenerator) writeIssuedCodes(ctx context.Context, pool *pgxpool.Pool
 	if err != nil {
 		// If write fails, put the codes back in usedCodes
 		g.mu.Lock()
-		g.usedCodes = append(g.usedCodes, codes...)
+		for i := range codes {
+			g.usedCodes[codes[i]] = campaignIDs[i]
+		}
 		g.mu.Unlock()
 		return fmt.Errorf("failed to write used codes: %w", err)
 	}
@@ -96,7 +113,10 @@ func (g *codeGenerator) writeIssuedCodes(ctx context.Context, pool *pgxpool.Pool
 	return nil
 }
 
-func (g *codeGenerator) refillPool(ctx context.Context, pool *pgxpool.Pool) error {
+func (g *codeGenerator) refillPool(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -104,7 +124,7 @@ func (g *codeGenerator) refillPool(ctx context.Context, pool *pgxpool.Pool) erro
 		return nil
 	}
 
-	codes := g.generateBatch(g.batchSize)
+	codes := g.generateBatch()
 
 	placeholders := make([]string, len(codes))
 	args := make([]interface{}, len(codes))
@@ -143,7 +163,11 @@ func (g *codeGenerator) refillPool(ctx context.Context, pool *pgxpool.Pool) erro
 	return nil
 }
 
-func (g *codeGenerator) GenerateCouponCode(ctx context.Context, pool *pgxpool.Pool) (string, error) {
+func (g *codeGenerator) GenerateCouponCode(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	campaignID string,
+) (string, error) {
 	if err := g.refillPool(ctx, pool); err != nil {
 		log.Printf("Failed to refill code pool: %v", err)
 	}
@@ -153,7 +177,7 @@ func (g *codeGenerator) GenerateCouponCode(ctx context.Context, pool *pgxpool.Po
 
 	code := g.codePool[0]
 	g.codePool = g.codePool[1:]
-	g.usedCodes = append(g.usedCodes, code)
+	g.usedCodes[code] = campaignID
 
 	return code, nil
 }
