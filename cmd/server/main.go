@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	couponConnect "coupon-issuance/gen/coupon/v1/v1connect"
+	"coupon-issuance/internal/database"
 	"coupon-issuance/internal/server"
 
 	"golang.org/x/net/http2"
@@ -12,7 +14,15 @@ import (
 )
 
 func main() {
-	couponService := &server.CouponService{}
+	ctx := context.Background()
+
+	pool, err := database.NewPool(ctx)
+	if err != nil {
+		log.Fatalf("Failed to create database pool: %v", err)
+	}
+	defer pool.Close()
+
+	couponService := server.NewCouponService(pool)
 	path, handler := couponConnect.NewCouponServiceHandler(couponService)
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)

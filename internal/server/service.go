@@ -6,9 +6,18 @@ import (
 	coupon "coupon-issuance/gen/coupon/v1"
 
 	"connectrpc.com/connect"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type CouponService struct {
+	pool *pgxpool.Pool
+}
+
+// NewCouponService creates a new instance of CouponService
+func NewCouponService(pool *pgxpool.Pool) *CouponService {
+	return &CouponService{
+		pool: pool,
+	}
 }
 
 func (s *CouponService) CreateCampaign(ctx context.Context, req *connect.Request[coupon.CreateCampaignRequest]) (*connect.Response[coupon.CreateCampaignResponse], error) {

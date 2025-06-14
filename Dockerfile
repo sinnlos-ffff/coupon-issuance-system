@@ -1,4 +1,4 @@
-FROM golang:1.22.3-alpine AS server
+FROM golang:1.23.0-alpine AS server
 
 RUN apk add --no-cache curl unzip protobuf-dev && \
     go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
