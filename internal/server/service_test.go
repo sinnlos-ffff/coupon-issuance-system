@@ -18,6 +18,7 @@ import (
 func setupTestService(t *testing.T) *CouponService {
 	// TODO: separate test database and redis
 	ctx := context.Background()
+	backgroundCtx, cancel := context.WithCancel(ctx)
 
 	pool, err := database.NewPool(ctx)
 	require.NoError(t, err)
@@ -29,13 +30,15 @@ func setupTestService(t *testing.T) *CouponService {
 	codeGen := newCodeGenerator()
 
 	service := &CouponService{
-		pool:    pool,
-		redis:   redisClient,
-		codeGen: codeGen,
+		pool:                    pool,
+		redis:                   redisClient,
+		codeGen:                 codeGen,
+		context:                 ctx,
+		cancelBackgroundWorkers: cancel,
 	}
 
-	go service.startCampaignStatusWorker(ctx)
-	go service.startCouponCodeWriter(ctx)
+	go service.startCampaignStatusWorker(backgroundCtx)
+	go service.startCouponCodeWriter(backgroundCtx)
 
 	// Register cleanup to run after test
 	t.Cleanup(func() {
