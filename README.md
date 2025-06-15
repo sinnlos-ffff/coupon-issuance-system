@@ -15,7 +15,7 @@
 
 - Atomic coupon issuance using Redis counters
 - Asynchronous database writes for better performance
-- Unique code generation with configurable format
+- Unique code generation with a code pool per each server
 - Campaign lifecycle management
 
 ### Performance Characteristics
@@ -38,6 +38,12 @@ The system exposes a Connect/gRPC API with two main endpoints:
    - Atomic counter verification
    - Unique code generation
    - Async database persistence
+
+3. `GetCampaign`: Retrieves campaign details including:
+   - Campaign status
+   - Campaign start time
+   - Campaign status
+   - Issued coupon codes
 
 ## Test
 
