@@ -79,11 +79,18 @@ func (g *codeGenerator) writeIssuedCodes(
 	g.usedCoupons = make(map[string]string)
 	g.mu.Unlock()
 
-	// Prepare batch insert
-	values := make([]string, len(codes))
+	// Start a transaction
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Update the codes with campaign_id and mark as issued
+	placeholders := make([]string, len(codes))
 	args := make([]interface{}, len(codes)*2)
 	for i := range codes {
-		values[i] = fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2)
+		placeholders[i] = fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2)
 		args[i*2] = codes[i]
 		var campaignID pgtype.UUID
 		err := campaignID.Scan(campaignIDs[i])
@@ -94,11 +101,18 @@ func (g *codeGenerator) writeIssuedCodes(
 	}
 
 	query := fmt.Sprintf(`
-		INSERT INTO coupons (code, campaign_id)
-		VALUES %s`,
-		strings.Join(values, ","))
+		WITH input_codes(code, campaign_id) AS (
+			VALUES %s
+		)
+		UPDATE coupons c
+		SET campaign_id = i.campaign_id::uuid, issued = TRUE
+		FROM input_codes i
+		WHERE c.code = i.code 
+		AND c.campaign_id IS NULL 
+		AND c.issued = FALSE
+		RETURNING c.code`, strings.Join(placeholders, ","))
 
-	_, err := pool.Exec(ctx, query, args...)
+	rows, err := tx.Query(ctx, query, args...)
 	if err != nil {
 		// If write fails, put the codes back in usedCodes
 		g.mu.Lock()
@@ -107,6 +121,36 @@ func (g *codeGenerator) writeIssuedCodes(
 		}
 		g.mu.Unlock()
 		return fmt.Errorf("failed to write used codes: %w", err)
+	}
+	defer rows.Close()
+
+	// Verify all codes were updated
+	updatedCodes := make(map[string]struct{})
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return fmt.Errorf("failed to scan updated code: %w", err)
+		}
+		updatedCodes[code] = struct{}{}
+	}
+
+	// Check if any codes failed to update
+	for _, code := range codes {
+		if _, updated := updatedCodes[code]; !updated {
+			// Put failed codes back in usedCodes
+			g.mu.Lock()
+			for i, c := range codes {
+				if c == code {
+					g.usedCoupons[code] = campaignIDs[i]
+					break
+				}
+			}
+			g.mu.Unlock()
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -125,38 +169,47 @@ func (g *codeGenerator) refillPool(
 
 	codes := g.generateBatch()
 
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Insert unissued codes into coupons table
 	placeholders := make([]string, len(codes))
 	args := make([]interface{}, len(codes))
 	for i, code := range codes {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		placeholders[i] = fmt.Sprintf("($%d)", i+1)
 		args[i] = code
 	}
 
 	query := fmt.Sprintf(`
-		SELECT code 
-		FROM coupons 
-		WHERE code IN (%s)`,
+		WITH inserted_codes AS (
+			INSERT INTO coupons (code)
+			VALUES %s
+			ON CONFLICT (code) DO NOTHING
+			RETURNING code
+		)
+		SELECT code FROM inserted_codes`,
 		strings.Join(placeholders, ","))
 
-	rows, err := pool.Query(ctx, query, args...)
+	rows, err := tx.Query(ctx, query, args...)
 	if err != nil {
-		return fmt.Errorf("failed to check coupon codes: %w", err)
+		return fmt.Errorf("failed to check reserved codes: %w", err)
 	}
 	defer rows.Close()
 
-	existingCodes := make(map[string]struct{})
+	// Add successfully reserved codes to the pool
 	for rows.Next() {
 		var code string
 		if err := rows.Scan(&code); err != nil {
-			return fmt.Errorf("failed to scan existing code: %w", err)
+			return fmt.Errorf("failed to scan reserved code: %w", err)
 		}
-		existingCodes[code] = struct{}{}
+		g.codePool = append(g.codePool, code)
 	}
 
-	for _, code := range codes {
-		if _, exists := existingCodes[code]; !exists {
-			g.codePool = append(g.codePool, code)
-		}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
