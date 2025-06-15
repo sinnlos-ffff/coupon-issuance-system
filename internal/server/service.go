@@ -60,6 +60,7 @@ func (s *CouponService) updateCampaignStatus(
 
 func (s *CouponService) startCampaignStatusWorker(ctx context.Context) {
 	// Could be adjusted if desired
+	serverCtx := s.context
 	interval := time.Second
 
 	for {
@@ -70,7 +71,7 @@ func (s *CouponService) startCampaignStatusWorker(ctx context.Context) {
 			now := time.Now().Unix()
 
 			// Get all campaigns that should be activated (score <= now)
-			results, err := s.redis.ZRangeByScore(s.context, campaignActivationKey,
+			results, err := s.redis.ZRangeByScore(serverCtx, campaignActivationKey,
 				&redis.ZRangeBy{
 					Min:    "0",
 					Max:    fmt.Sprintf("%d", now),
@@ -89,14 +90,14 @@ func (s *CouponService) startCampaignStatusWorker(ctx context.Context) {
 			}
 
 			for _, campaignID := range results {
-				if err := s.updateCampaignStatus(s.context, campaignID); err != nil {
+				if err := s.updateCampaignStatus(serverCtx, campaignID); err != nil {
 					log.Printf("Failed to update campaign status for %s: %v", campaignID, err)
 					continue
 				}
 
 				// Remove from the activation set
 				if err := s.redis.ZRem(
-					s.context,
+					serverCtx,
 					campaignActivationKey,
 					campaignID,
 				).Err(); err != nil {
@@ -112,9 +113,9 @@ func (s *CouponService) startCampaignStatusWorker(ctx context.Context) {
 }
 
 func (s *CouponService) startCouponCodeWriter(ctx context.Context) {
+	serverCtx := s.context
 	// Flush codes every second
 	interval := time.Second
-
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -122,14 +123,14 @@ func (s *CouponService) startCouponCodeWriter(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			// Final flush on shutdown
-			if err := s.codeGen.writeIssuedCodes(s.context, s.pool); err != nil {
+			if err := s.codeGen.writeIssuedCodes(serverCtx, s.pool); err != nil {
 				log.Printf("Failed to write issued codes during shutdown: %v", err)
 			}
 			return
 		case <-ticker.C:
 			// Check if we have any codes to write
 			if s.codeGen.hasPendingCodes() {
-				if err := s.codeGen.writeIssuedCodes(s.context, s.pool); err != nil {
+				if err := s.codeGen.writeIssuedCodes(serverCtx, s.pool); err != nil {
 					log.Printf("Failed to write issued codes: %v", err)
 				}
 			}

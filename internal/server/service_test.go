@@ -282,14 +282,14 @@ func TestCouponService_IssueCoupon(t *testing.T) {
 
 	t.Run("concurrent coupon issuance", func(t *testing.T) {
 		// Reset counter to 2
-		err := service.redis.Set(ctx, counterKey, 2, 0).Err()
+		err := service.redis.Set(service.context, counterKey, 2, 0).Err()
 		require.NoError(t, err)
 
 		// Try to issue 3 coupons concurrently
 		results := make(chan error, 3)
 		for i := 0; i < 3; i++ {
 			go func() {
-				_, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
+				_, err := service.IssueCoupon(service.context, connect.NewRequest(&coupon.IssueCouponRequest{
 					CampaignId: campaignID,
 				}))
 				results <- err
