@@ -17,11 +17,14 @@ func TestCouponService_HighThroughputLoad(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a test campaign with high limit
-	resp, err := service.CreateCampaign(ctx, connect.NewRequest(&coupon.CreateCampaignRequest{
-		Name:        "Load Test Campaign",
-		StartTime:   time.Now().Format(time.RFC3339),
-		CouponLimit: 3000,
-	}))
+	resp, err := service.CreateCampaign(
+		ctx,
+		connect.NewRequest(&coupon.CreateCampaignRequest{
+			Name:        "Load Test Campaign",
+			StartTime:   time.Now().Format(time.RFC3339),
+			CouponLimit: 3000,
+		}),
+	)
 	require.NoError(t, err)
 	campaignID := resp.Msg.CampaignId
 
@@ -57,9 +60,12 @@ func TestCouponService_HighThroughputLoad(t *testing.T) {
 			case <-done:
 				return
 			case <-ticker.C:
-				_, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
-					CampaignId: campaignID,
-				}))
+				_, err := service.IssueCoupon(
+					ctx,
+					connect.NewRequest(&coupon.IssueCouponRequest{
+						CampaignId: campaignID,
+					}),
+				)
 				if err != nil {
 					errors++
 				} else {
@@ -99,11 +105,14 @@ func TestCouponService_MultiCampaignConcurrency(t *testing.T) {
 	campaigns := []string{}
 
 	for i := 0; i < 3; i++ {
-		resp, err := service.CreateCampaign(ctx, connect.NewRequest(&coupon.CreateCampaignRequest{
-			Name:        "Load Test Campaign",
-			StartTime:   time.Now().Format(time.RFC3339),
-			CouponLimit: 10000,
-		}))
+		resp, err := service.CreateCampaign(
+			ctx,
+			connect.NewRequest(&coupon.CreateCampaignRequest{
+				Name:        "Load Test Campaign",
+				StartTime:   time.Now().Format(time.RFC3339),
+				CouponLimit: 10000,
+			}),
+		)
 		require.NoError(t, err)
 		campaigns = append(campaigns, resp.Msg.CampaignId)
 	}
@@ -119,9 +128,12 @@ func TestCouponService_MultiCampaignConcurrency(t *testing.T) {
 	for _, campaignID := range campaigns {
 		for i := 0; i < 1000; i++ {
 			go func(cid string) {
-				_, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
-					CampaignId: cid,
-				}))
+				_, err := service.IssueCoupon(
+					ctx,
+					connect.NewRequest(&coupon.IssueCouponRequest{
+						CampaignId: cid,
+					}),
+				)
 				results <- struct {
 					campaignID string
 					err        error

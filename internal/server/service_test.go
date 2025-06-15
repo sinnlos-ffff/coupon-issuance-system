@@ -195,18 +195,24 @@ func TestCouponService_IssueCoupon(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("successful coupon issuance", func(t *testing.T) {
-		resp, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
-			CampaignId: campaignID,
-		}))
+		resp, err := service.IssueCoupon(
+			ctx,
+			connect.NewRequest(&coupon.IssueCouponRequest{
+				CampaignId: campaignID,
+			}),
+		)
 		require.NoError(t, err)
 		assert.NotEmpty(t, resp.Msg.CouponCode)
 		assert.Equal(t, 10, len([]rune(resp.Msg.CouponCode))) // Check code length
 	})
 
 	t.Run("campaign not found", func(t *testing.T) {
-		_, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
-			CampaignId: "non-existent-id",
-		}))
+		_, err := service.IssueCoupon(
+			ctx,
+			connect.NewRequest(&coupon.IssueCouponRequest{
+				CampaignId: "non-existent-id",
+			}),
+		)
 		require.Error(t, err)
 		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 	})
@@ -219,9 +225,12 @@ func TestCouponService_IssueCoupon(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		_, err = service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
-			CampaignId: campaignID,
-		}))
+		_, err = service.IssueCoupon(
+			ctx,
+			connect.NewRequest(&coupon.IssueCouponRequest{
+				CampaignId: campaignID,
+			}),
+		)
 		require.Error(t, err)
 		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 
@@ -238,9 +247,12 @@ func TestCouponService_IssueCoupon(t *testing.T) {
 		err := service.redis.Set(ctx, counterKey, 0, 0).Err()
 		require.NoError(t, err)
 
-		_, err = service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
-			CampaignId: campaignID,
-		}))
+		_, err = service.IssueCoupon(
+			ctx,
+			connect.NewRequest(&coupon.IssueCouponRequest{
+				CampaignId: campaignID,
+			}),
+		)
 		require.Error(t, err)
 		assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
 	})
@@ -250,9 +262,12 @@ func TestCouponService_IssueCoupon(t *testing.T) {
 		err := service.redis.Set(ctx, counterKey, 1, 0).Err()
 		require.NoError(t, err)
 
-		resp, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
-			CampaignId: campaignID,
-		}))
+		resp, err := service.IssueCoupon(
+			ctx,
+			connect.NewRequest(&coupon.IssueCouponRequest{
+				CampaignId: campaignID,
+			}),
+		)
 		require.NoError(t, err)
 		assert.NotEmpty(t, resp.Msg.CouponCode)
 
@@ -266,9 +281,12 @@ func TestCouponService_IssueCoupon(t *testing.T) {
 		assert.Equal(t, "finished", status)
 
 		// Try to issue another coupon
-		_, err = service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
-			CampaignId: campaignID,
-		}))
+		_, err = service.IssueCoupon(
+			ctx,
+			connect.NewRequest(&coupon.IssueCouponRequest{
+				CampaignId: campaignID,
+			}),
+		)
 		require.Error(t, err)
 		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 
@@ -289,9 +307,12 @@ func TestCouponService_IssueCoupon(t *testing.T) {
 		results := make(chan error, 3)
 		for i := 0; i < 3; i++ {
 			go func() {
-				_, err := service.IssueCoupon(service.context, connect.NewRequest(&coupon.IssueCouponRequest{
-					CampaignId: campaignID,
-				}))
+				_, err := service.IssueCoupon(
+					service.context,
+					connect.NewRequest(&coupon.IssueCouponRequest{
+						CampaignId: campaignID,
+					}),
+				)
 				results <- err
 			}()
 		}
@@ -319,18 +340,24 @@ func TestCouponService_GetCampaign(t *testing.T) {
 
 	// Create a test campaign
 	startTime := time.Now().Add(time.Second)
-	resp, err := service.CreateCampaign(ctx, connect.NewRequest(&coupon.CreateCampaignRequest{
-		Name:        "Test Campaign",
-		StartTime:   startTime.Format(time.RFC3339),
-		CouponLimit: 10,
-	}))
+	resp, err := service.CreateCampaign(
+		ctx,
+		connect.NewRequest(&coupon.CreateCampaignRequest{
+			Name:        "Test Campaign",
+			StartTime:   startTime.Format(time.RFC3339),
+			CouponLimit: 10,
+		}),
+	)
 	require.NoError(t, err)
 	campaignID := resp.Msg.CampaignId
 
 	t.Run("get campaign before activation", func(t *testing.T) {
-		campaignResp, err := service.GetCampaign(ctx, connect.NewRequest(&coupon.GetCampaignRequest{
-			CampaignId: campaignID,
-		}))
+		campaignResp, err := service.GetCampaign(
+			ctx,
+			connect.NewRequest(&coupon.GetCampaignRequest{
+				CampaignId: campaignID,
+			}),
+		)
 		require.NoError(t, err)
 		assert.Equal(t, "Test Campaign", campaignResp.Msg.Name)
 		assert.Equal(t, startTime.Format(time.RFC3339), campaignResp.Msg.StartTime)
@@ -351,9 +378,12 @@ func TestCouponService_GetCampaign(t *testing.T) {
 	// Issue some coupons
 	codes := make([]string, 3)
 	for i := 0; i < 3; i++ {
-		resp, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
-			CampaignId: campaignID,
-		}))
+		resp, err := service.IssueCoupon(
+			ctx,
+			connect.NewRequest(&coupon.IssueCouponRequest{
+				CampaignId: campaignID,
+			}),
+		)
 		require.NoError(t, err)
 		codes[i] = resp.Msg.CouponCode
 	}
@@ -369,9 +399,12 @@ func TestCouponService_GetCampaign(t *testing.T) {
 	}, 5*time.Second, 100*time.Millisecond)
 
 	t.Run("get active campaign with issued coupons", func(t *testing.T) {
-		campaignResp, err := service.GetCampaign(ctx, connect.NewRequest(&coupon.GetCampaignRequest{
-			CampaignId: campaignID,
-		}))
+		campaignResp, err := service.GetCampaign(
+			ctx,
+			connect.NewRequest(&coupon.GetCampaignRequest{
+				CampaignId: campaignID,
+			}),
+		)
 		require.NoError(t, err)
 		assert.Equal(t, "Test Campaign", campaignResp.Msg.Name)
 		assert.Equal(t, startTime.Format(time.RFC3339), campaignResp.Msg.StartTime)
@@ -382,9 +415,12 @@ func TestCouponService_GetCampaign(t *testing.T) {
 
 	// Issue remaining coupons to finish the campaign
 	for i := 0; i < 7; i++ { // 7 + 3 already issued = 10
-		_, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
-			CampaignId: campaignID,
-		}))
+		_, err := service.IssueCoupon(
+			ctx,
+			connect.NewRequest(&coupon.IssueCouponRequest{
+				CampaignId: campaignID,
+			}),
+		)
 		require.NoError(t, err)
 	}
 
@@ -399,9 +435,12 @@ func TestCouponService_GetCampaign(t *testing.T) {
 	}, 5*time.Second, 100*time.Millisecond)
 
 	t.Run("get finished campaign with all coupons", func(t *testing.T) {
-		campaignResp, err := service.GetCampaign(ctx, connect.NewRequest(&coupon.GetCampaignRequest{
-			CampaignId: campaignID,
-		}))
+		campaignResp, err := service.GetCampaign(
+			ctx,
+			connect.NewRequest(&coupon.GetCampaignRequest{
+				CampaignId: campaignID,
+			}),
+		)
 		require.NoError(t, err)
 		assert.Equal(t, "Test Campaign", campaignResp.Msg.Name)
 		assert.Equal(t, startTime.Format(time.RFC3339), campaignResp.Msg.StartTime)
@@ -410,9 +449,12 @@ func TestCouponService_GetCampaign(t *testing.T) {
 	})
 
 	t.Run("get non-existent campaign", func(t *testing.T) {
-		_, err := service.GetCampaign(ctx, connect.NewRequest(&coupon.GetCampaignRequest{
-			CampaignId: "non-existent-id",
-		}))
+		_, err := service.GetCampaign(
+			ctx,
+			connect.NewRequest(&coupon.GetCampaignRequest{
+				CampaignId: "non-existent-id",
+			}),
+		)
 		require.Error(t, err)
 		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 	})

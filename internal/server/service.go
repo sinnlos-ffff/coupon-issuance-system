@@ -53,7 +53,8 @@ func (s *CouponService) updateCampaignStatus(
 
 	// Update the status to active
 	_, err = s.pool.Exec(ctx,
-		`UPDATE campaigns SET status = 'active' WHERE id = $1 AND status = 'scheduled'`,
+		`UPDATE campaigns SET status = 'active' 
+		WHERE id = $1 AND status = 'scheduled'`,
 		campaignID,
 	)
 	return err
@@ -312,7 +313,10 @@ func (s *CouponService) GetCampaign(
 	}), nil
 }
 
-func (s *CouponService) updateCampaignToFinished(ctx context.Context, campaignID string) error {
+func (s *CouponService) updateCampaignToFinished(
+	ctx context.Context,
+	campaignID string,
+) error {
 	_, err := s.pool.Exec(ctx,
 		`UPDATE campaigns SET status = 'finished' WHERE id = $1`,
 		campaignID,
