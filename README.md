@@ -38,3 +38,14 @@ The system exposes a Connect/gRPC API with two main endpoints:
    - Atomic counter verification
    - Unique code generation
    - Async database persistence
+
+## Test
+
+```sh
+export POSTGRES_HOST=postgres
+export REDIS_HOST=redis
+docker compose down -v
+docker compose up --build
+
+./test.sh
+```
