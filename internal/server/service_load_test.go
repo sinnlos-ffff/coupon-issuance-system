@@ -96,9 +96,6 @@ func TestCouponService_MultiCampaignConcurrency(t *testing.T) {
 	service := setupTestService(t)
 	ctx := context.Background()
 
-	// Give background workers time to initialize
-	time.Sleep(100 * time.Millisecond)
-
 	// Create multiple test campaigns
 	campaigns := []string{}
 
