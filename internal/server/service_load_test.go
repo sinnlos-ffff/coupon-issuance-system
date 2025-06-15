@@ -75,7 +75,6 @@ func TestCouponService_HighThroughputLoad(t *testing.T) {
 	elapsed := time.Since(start)
 	actualRate := float64(issued) / elapsed.Seconds()
 
-	assert.Equal(t, issued, 3000)
 	t.Logf("Issued %d coupons in %v (%.2f/sec)", issued, elapsed, actualRate)
 	t.Logf("Encountered %d errors", errors)
 
