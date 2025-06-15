@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 	"sync"
@@ -79,12 +80,15 @@ func (g *codeGenerator) writeIssuedCodes(
 	g.usedCoupons = make(map[string]string)
 	g.mu.Unlock()
 
-	// Start a transaction
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil {
+			log.Printf("failed to rollback transaction: %v", err)
+		}
+	}()
 
 	// Update the codes with campaign_id and mark as issued
 	placeholders := make([]string, len(codes))
@@ -173,7 +177,11 @@ func (g *codeGenerator) refillPool(
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil {
+			log.Printf("failed to rollback transaction: %v", err)
+		}
+	}()
 
 	// Insert unissued codes into coupons table
 	placeholders := make([]string, len(codes))
