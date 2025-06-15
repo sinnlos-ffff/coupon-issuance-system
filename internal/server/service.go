@@ -23,11 +23,12 @@ const (
 )
 
 type CouponService struct {
-	pool                    *pgxpool.Pool
-	redis                   *redis.Client
-	codeGen                 *codeGenerator
-	context                 context.Context
-	cancelBackgroundWorkers context.CancelFunc
+	pool                     *pgxpool.Pool
+	redis                    *redis.Client
+	codeGen                  *codeGenerator
+	context                  context.Context
+	cancelBackgroundWorkers  context.CancelFunc
+	backgroundWorkersStopped chan struct{}
 }
 
 func (s *CouponService) updateCampaignStatus(
@@ -66,6 +67,7 @@ func (s *CouponService) startCampaignStatusWorker(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			s.backgroundWorkersStopped <- struct{}{}
 			return
 		default:
 			now := time.Now().Unix()
@@ -126,6 +128,7 @@ func (s *CouponService) startCouponCodeWriter(ctx context.Context) {
 			if err := s.codeGen.writeIssuedCodes(serverCtx, s.pool); err != nil {
 				log.Printf("Failed to write issued codes during shutdown: %v", err)
 			}
+			s.backgroundWorkersStopped <- struct{}{}
 			return
 		case <-ticker.C:
 			// Check if we have any codes to write
@@ -156,11 +159,12 @@ func NewCouponService() *CouponService {
 	codeGen := newCodeGenerator()
 
 	service := &CouponService{
-		pool:                    pool,
-		redis:                   redisClient,
-		codeGen:                 codeGen,
-		context:                 ctx,
-		cancelBackgroundWorkers: cancel,
+		pool:                     pool,
+		redis:                    redisClient,
+		codeGen:                  codeGen,
+		context:                  ctx,
+		cancelBackgroundWorkers:  cancel,
+		backgroundWorkersStopped: make(chan struct{}, 2),
 	}
 
 	go service.startCampaignStatusWorker(backgroundCtx)
@@ -397,14 +401,25 @@ func (s *CouponService) IssueCoupon(
 	}), nil
 }
 
-func (s *CouponService) Close() {
-	if s.cancelBackgroundWorkers != nil {
-		s.cancelBackgroundWorkers()
+func (s *CouponService) Close() error {
+	s.cancelBackgroundWorkers()
+
+	// Wait for both background workers to stop
+	for i := 0; i < 2; i++ {
+		select {
+		case <-s.backgroundWorkersStopped:
+		case <-time.After(5 * time.Second):
+			return fmt.Errorf("timeout waiting for background workers to complete")
+		}
 	}
+
+	// Then close connections
 	if s.pool != nil {
 		s.pool.Close()
 	}
 	if s.redis != nil {
 		s.redis.Close()
 	}
+
+	return nil
 }
