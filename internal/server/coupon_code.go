@@ -85,8 +85,10 @@ func (g *codeGenerator) writeIssuedCodes(
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer func() {
-		if err := tx.Rollback(ctx); err != nil {
-			log.Printf("failed to rollback transaction: %v", err)
+		if tx != nil {
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+				log.Printf("failed to rollback transaction: %v", rollbackErr)
+			}
 		}
 	}()
 
@@ -156,6 +158,7 @@ func (g *codeGenerator) writeIssuedCodes(
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
+	tx = nil // Set tx to nil after successful commit
 
 	return nil
 }
@@ -178,8 +181,10 @@ func (g *codeGenerator) refillPool(
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer func() {
-		if err := tx.Rollback(ctx); err != nil {
-			log.Printf("failed to rollback transaction: %v", err)
+		if tx != nil {
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+				log.Printf("failed to rollback transaction: %v", rollbackErr)
+			}
 		}
 	}()
 
@@ -219,6 +224,7 @@ func (g *codeGenerator) refillPool(
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
+	tx = nil // Set tx to nil after successful commit
 
 	return nil
 }
