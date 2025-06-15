@@ -251,8 +251,60 @@ func (s *CouponService) GetCampaign(
 	ctx context.Context,
 	req *GetCampaignReq,
 ) (*GetCampaignResp, error) {
-	// TODO: Implement campaign retrieval logic
-	return connect.NewResponse(&coupon.GetCampaignResponse{}), nil
+	var (
+		name      string
+		startTime time.Time
+		status    string
+	)
+	err := s.pool.QueryRow(ctx,
+		`SELECT name, start_time, status FROM campaigns WHERE id = $1`,
+		req.Msg.CampaignId,
+	).Scan(&name, &startTime, &status)
+
+	if err != nil {
+		return nil, connect.NewError(
+			connect.CodeNotFound,
+			fmt.Errorf("campaign not found: %v", err),
+		)
+	}
+
+	// Get issued coupons
+	var issuedCoupons []string
+	rows, err := s.pool.Query(ctx,
+		`SELECT code FROM coupons WHERE campaign_id = $1 ORDER BY created_at`,
+		req.Msg.CampaignId,
+	)
+	if err != nil {
+		return nil, connect.NewError(
+			connect.CodeInternal,
+			fmt.Errorf("failed to get issued coupons: %v", err),
+		)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, connect.NewError(
+				connect.CodeInternal,
+				fmt.Errorf("failed to scan coupon code: %v", err),
+			)
+		}
+		issuedCoupons = append(issuedCoupons, code)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, connect.NewError(
+			connect.CodeInternal,
+			fmt.Errorf("error iterating coupon codes: %v", err),
+		)
+	}
+
+	return connect.NewResponse(&coupon.GetCampaignResponse{
+		Name:          name,
+		StartTime:     startTime.Format(time.RFC3339),
+		Status:        status,
+		IssuedCoupons: issuedCoupons,
+	}), nil
 }
 
 func (s *CouponService) updateCampaignToFinished(ctx context.Context, campaignID string) error {
