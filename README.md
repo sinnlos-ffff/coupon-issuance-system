@@ -1,7 +1,5 @@
 # Coupon Issuance System
 
-## Architecture
-
 ### Core Components
 
 - **Database**: PostgreSQL for persistent storage of campaign and coupon data
