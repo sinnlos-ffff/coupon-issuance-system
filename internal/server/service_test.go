@@ -312,3 +312,108 @@ func TestCouponService_IssueCoupon(t *testing.T) {
 		assert.Equal(t, 1, errorCount)
 	})
 }
+
+func TestCouponService_GetCampaign(t *testing.T) {
+	service := setupTestService(t)
+	ctx := context.Background()
+
+	// Create a test campaign
+	startTime := time.Now().Add(time.Second)
+	resp, err := service.CreateCampaign(ctx, connect.NewRequest(&coupon.CreateCampaignRequest{
+		Name:        "Test Campaign",
+		StartTime:   startTime.Format(time.RFC3339),
+		CouponLimit: 10,
+	}))
+	require.NoError(t, err)
+	campaignID := resp.Msg.CampaignId
+
+	t.Run("get campaign before activation", func(t *testing.T) {
+		campaignResp, err := service.GetCampaign(ctx, connect.NewRequest(&coupon.GetCampaignRequest{
+			CampaignId: campaignID,
+		}))
+		require.NoError(t, err)
+		assert.Equal(t, "Test Campaign", campaignResp.Msg.Name)
+		assert.Equal(t, startTime.Format(time.RFC3339), campaignResp.Msg.StartTime)
+		assert.Equal(t, "scheduled", campaignResp.Msg.Status)
+		assert.Empty(t, campaignResp.Msg.IssuedCoupons)
+	})
+
+	// Wait for campaign to be activated
+	require.Eventually(t, func() bool {
+		var status string
+		err = service.pool.QueryRow(ctx,
+			"SELECT status FROM campaigns WHERE id = $1",
+			campaignID,
+		).Scan(&status)
+		return err == nil && status == "active"
+	}, 5*time.Second, 100*time.Millisecond)
+
+	// Issue some coupons
+	codes := make([]string, 3)
+	for i := 0; i < 3; i++ {
+		resp, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
+			CampaignId: campaignID,
+		}))
+		require.NoError(t, err)
+		codes[i] = resp.Msg.CouponCode
+	}
+
+	// Wait for background writer to flush
+	require.Eventually(t, func() bool {
+		var count int
+		err := service.pool.QueryRow(ctx,
+			"SELECT COUNT(*) FROM coupons WHERE campaign_id = $1",
+			campaignID,
+		).Scan(&count)
+		return err == nil && count == 3
+	}, 5*time.Second, 100*time.Millisecond)
+
+	t.Run("get active campaign with issued coupons", func(t *testing.T) {
+		campaignResp, err := service.GetCampaign(ctx, connect.NewRequest(&coupon.GetCampaignRequest{
+			CampaignId: campaignID,
+		}))
+		require.NoError(t, err)
+		assert.Equal(t, "Test Campaign", campaignResp.Msg.Name)
+		assert.Equal(t, startTime.Format(time.RFC3339), campaignResp.Msg.StartTime)
+		assert.Equal(t, "active", campaignResp.Msg.Status)
+		assert.Len(t, campaignResp.Msg.IssuedCoupons, 3)
+		assert.ElementsMatch(t, codes, campaignResp.Msg.IssuedCoupons)
+	})
+
+	// Issue remaining coupons to finish the campaign
+	for i := 0; i < 7; i++ { // 7 + 3 already issued = 10
+		_, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
+			CampaignId: campaignID,
+		}))
+		require.NoError(t, err)
+	}
+
+	// Wait for background writer to flush
+	require.Eventually(t, func() bool {
+		var count int
+		err := service.pool.QueryRow(ctx,
+			"SELECT COUNT(*) FROM coupons WHERE campaign_id = $1",
+			campaignID,
+		).Scan(&count)
+		return err == nil && count == 10
+	}, 5*time.Second, 100*time.Millisecond)
+
+	t.Run("get finished campaign with all coupons", func(t *testing.T) {
+		campaignResp, err := service.GetCampaign(ctx, connect.NewRequest(&coupon.GetCampaignRequest{
+			CampaignId: campaignID,
+		}))
+		require.NoError(t, err)
+		assert.Equal(t, "Test Campaign", campaignResp.Msg.Name)
+		assert.Equal(t, startTime.Format(time.RFC3339), campaignResp.Msg.StartTime)
+		assert.Equal(t, "finished", campaignResp.Msg.Status)
+		assert.Len(t, campaignResp.Msg.IssuedCoupons, 10)
+	})
+
+	t.Run("get non-existent campaign", func(t *testing.T) {
+		_, err := service.GetCampaign(ctx, connect.NewRequest(&coupon.GetCampaignRequest{
+			CampaignId: "non-existent-id",
+		}))
+		require.Error(t, err)
+		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+	})
+}
