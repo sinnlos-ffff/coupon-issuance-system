@@ -37,7 +37,6 @@ func TestCouponService_HighThroughputLoad(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "active", status, "Campaign should be active")
 
-	// Test parameters
 	duration := 5 * time.Second
 	targetRate := 1000 // coupons per second
 	interval := time.Second / time.Duration(targetRate)
@@ -97,6 +96,9 @@ func TestCouponService_MultiCampaignConcurrency(t *testing.T) {
 	service := setupTestService(t)
 	ctx := context.Background()
 
+	// Give background workers time to initialize
+	time.Sleep(100 * time.Millisecond)
+
 	// Create multiple test campaigns
 	campaigns := []string{}
 
@@ -109,6 +111,9 @@ func TestCouponService_MultiCampaignConcurrency(t *testing.T) {
 		require.NoError(t, err)
 		campaigns = append(campaigns, resp.Msg.CampaignId)
 	}
+
+	// Wait for campaign to be activated by the worker
+	time.Sleep(2 * time.Second)
 
 	results := make(chan struct {
 		campaignID string
@@ -148,6 +153,9 @@ func TestCouponService_MultiCampaignConcurrency(t *testing.T) {
 	for _, campaignID := range campaigns {
 		t.Logf("Campaign %s: %d successful, %d errors",
 			campaignID, successCount[campaignID], errorCount[campaignID])
+
+		assert.True(t, successCount[campaignID] == 1000)
+		assert.True(t, errorCount[campaignID] == 0)
 
 		// Verify database count
 		var count int

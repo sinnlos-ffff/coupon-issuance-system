@@ -242,6 +242,41 @@ func TestCouponService_IssueCoupon(t *testing.T) {
 		assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
 	})
 
+	t.Run("last coupon updates campaign status", func(t *testing.T) {
+		// Reset counter to 1 (last coupon)
+		err := service.redis.Set(ctx, counterKey, 1, 0).Err()
+		require.NoError(t, err)
+
+		resp, err := service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
+			CampaignId: campaignID,
+		}))
+		require.NoError(t, err)
+		assert.NotEmpty(t, resp.Msg.CouponCode)
+
+		// Verify campaign status is updated to finished
+		var status string
+		err = service.pool.QueryRow(ctx,
+			"SELECT status FROM campaigns WHERE id = $1",
+			campaignID,
+		).Scan(&status)
+		require.NoError(t, err)
+		assert.Equal(t, "finished", status)
+
+		// Try to issue another coupon
+		_, err = service.IssueCoupon(ctx, connect.NewRequest(&coupon.IssueCouponRequest{
+			CampaignId: campaignID,
+		}))
+		require.Error(t, err)
+		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+
+		// Reset campaign status back to active for the next test
+		_, err = service.pool.Exec(ctx,
+			`UPDATE campaigns SET status = 'active' WHERE id = $1`,
+			campaignID,
+		)
+		require.NoError(t, err)
+	})
+
 	t.Run("concurrent coupon issuance", func(t *testing.T) {
 		// Reset counter to 2
 		err := service.redis.Set(ctx, counterKey, 2, 0).Err()
@@ -260,18 +295,17 @@ func TestCouponService_IssueCoupon(t *testing.T) {
 
 		// Collect results
 		successCount := 0
-		exhaustedCount := 0
+		errorCount := 0
 		for i := 0; i < 3; i++ {
 			err := <-results
 			if err == nil {
 				successCount++
-			} else if connect.CodeOf(err) == connect.CodeResourceExhausted {
-				exhaustedCount++
+			} else {
+				errorCount++
 			}
 		}
 
-		// Should have exactly 2 successful issuances and 1 exhausted
 		assert.Equal(t, 2, successCount)
-		assert.Equal(t, 1, exhaustedCount)
+		assert.Equal(t, 1, errorCount)
 	})
 }

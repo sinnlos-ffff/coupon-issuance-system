@@ -254,6 +254,14 @@ func (s *CouponService) GetCampaign(
 	return connect.NewResponse(&coupon.GetCampaignResponse{}), nil
 }
 
+func (s *CouponService) updateCampaignToFinished(ctx context.Context, campaignID string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE campaigns SET status = 'finished' WHERE id = $1`,
+		campaignID,
+	)
+	return err
+}
+
 func (s *CouponService) IssueCoupon(
 	ctx context.Context,
 	req *IssueCouponReq,
@@ -287,7 +295,11 @@ func (s *CouponService) IssueCoupon(
 		if not current or tonumber(current) <= 0 then
 			return -1
 		end
-		return redis.call('DECR', KEYS[1])
+		local new_value = redis.call('DECR', KEYS[1])
+		if new_value == 0 then
+			return -2
+		end
+		return new_value
 	`
 
 	remaining, err := s.redis.Eval(ctx, script, []string{counterKey}).Int64()
@@ -303,6 +315,16 @@ func (s *CouponService) IssueCoupon(
 			connect.CodeResourceExhausted,
 			fmt.Errorf("campaign has reached its coupon limit"),
 		)
+	}
+
+	if remaining == -2 {
+		// Update database status
+		if err := s.updateCampaignToFinished(ctx, req.Msg.CampaignId); err != nil {
+			return nil, connect.NewError(
+				connect.CodeInternal,
+				fmt.Errorf("failed to update campaign status to finished: %v", err),
+			)
+		}
 	}
 
 	// Generate a unique coupon code
